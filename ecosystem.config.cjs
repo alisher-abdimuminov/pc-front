@@ -4,7 +4,7 @@ module.exports = {
 			name: "practicum",
 			port: "3003",
 			exec_mode: "fork",
-			script: "bun .output/server/index.mjs",
+			script: "bun run .output/server/index.mjs",
 			env: {
 				NUXT_PUBLIC_API_BASE: "https://api.practicum.samdpi.uz/api",
 				NUXT_PUBLIC_HEMIS_TEACHER_URL:
