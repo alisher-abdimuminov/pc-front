@@ -1,0 +1,20 @@
+{
+	"languages": {
+		"HTML": {
+			"formatter": "prettier",
+			"prettier": {
+				"htmlWhitespaceSensitivity": "ignore",
+				"singleAttributePerLine": false,
+				"bracketSameLine": true,
+			},
+		},
+		"Vue.js": {
+			"formatter": "prettier",
+			"prettier": {
+				"htmlWhitespaceSensitivity": "ignore",
+				"singleAttributePerLine": false,
+				"bracketSameLine": true,
+			},
+		},
+	},
+}
