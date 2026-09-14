@@ -2,6 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
 	devtools: { enabled: true },
+	telemetry: false,
 	modules: ["@pinia/nuxt", "shadcn-nuxt"],
 	css: ["~/assets/css/tailwind.css"],
 	vite: { plugins: [tailwindcss()] },
