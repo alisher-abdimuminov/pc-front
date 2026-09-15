@@ -11,7 +11,6 @@ const blank = () => ({
 	point_2: "",
 	point_3: "",
 	point_4: "",
-	location: "",
 	is_active: true,
 });
 const form = reactive(blank());
