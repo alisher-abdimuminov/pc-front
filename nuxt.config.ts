@@ -9,13 +9,13 @@ export default defineNuxtConfig({
 	shadcn: { prefix: "", componentDir: "@/components/ui" },
 	runtimeConfig: {
 		public: {
-			// apiBase: "https://api.practicum.samdpi.uz/api",
-			apiBase: "http://localhost:8000/api",
+			apiBase: "https://api.practicum.samdpi.uz/api",
+			// apiBase: "http://localhost:8000/api",
 			hemisTeacherURL: "https://hemis.uzfi.uz/oauth/authorize",
 			hemisStudentURL: "https://student.uzfi.uz/oauth/authorize",
 			hemisClientID: "9",
-			// hemisRedirectUri: "https://practicum.samdpi.uz/auth/callback/",
-			hemisRedirectUri: "http://127.0.0.1:3000/auth/callback/",
+			hemisRedirectUri: "https://practicum.samdpi.uz/auth/callback/",
+			// hemisRedirectUri: "http://127.0.0.1:3000/auth/callback/",
 		},
 	},
 	app: {
