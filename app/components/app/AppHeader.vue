@@ -8,8 +8,9 @@ function logout() {
 </script>
 <template>
 	<header
-		class="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background px-4 backdrop-blur md:px-8">
-		<div class="md:hidden font-bold">PC</div>
+		class="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background px-4 backdrop-blur md:px-8"
+	>
+		<img src="/images/logo.png" class="md:hidden size-10" alt="" />
 		<div class="ml-auto flex items-center gap-3">
 			<Button size="icon" variant="ghost" @click="$toggleTheme">
 				<LucideSun />
@@ -23,10 +24,12 @@ function logout() {
 			<img
 				v-if="a.user?.image_url"
 				:src="a.user.image_url"
-				class="h-9 w-9 rounded-full border object-cover" />
+				class="h-9 w-9 rounded-full border object-cover"
+			/>
 			<div
 				v-else
-				class="flex h-9 w-9 items-center justify-center rounded-full border-4 text-sm font-bold">
+				class="flex h-9 w-9 items-center justify-center rounded-full border-4 text-sm font-bold"
+			>
 				A
 			</div>
 			<Button class="md:hidden" variant="ghost" size="sm" @click="logout">

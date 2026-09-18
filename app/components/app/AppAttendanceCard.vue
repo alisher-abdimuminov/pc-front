@@ -98,7 +98,8 @@ const badge = (s: string) =>
 					<h2 class="font-semibold">Bugungi davomat</h2>
 					<p
 						v-if="data.has_schedule"
-						class="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+						class="mt-1 flex items-center gap-1 text-sm text-muted-foreground"
+					>
 						<MapPin class="h-4 w-4" />
 						{{ data.location?.name }}
 					</p>
@@ -112,31 +113,37 @@ const badge = (s: string) =>
 			<AppEmptyState
 				v-if="!data.has_schedule"
 				title="Bugun amaliyot yo‘q"
-				description="Guruhingiz uchun bugungi kunga jadval topilmadi." />
+				description="Guruhingiz uchun bugungi kunga jadval topilmadi."
+			/>
 			<div v-else class="grid gap-3 sm:grid-cols-3">
 				<button
 					v-for="s in data.steps"
 					:key="s.step"
-					class="rounded-2xl border p-4 text-left"
+					class="rounded-2xl border-2 p-4 text-left"
 					:class="
 						s.status === 'available'
-							? 'border-foreground border-dashed'
+							? 'bg-emerald-600/10 border-emerald-600 border-dashed'
 							: 'border'
 					"
 					:disabled="s.status !== 'available'"
-					@click="openCamera(s.step)">
+					@click="openCamera(s.step)"
+				>
 					<div class="flex items-center justify-between">
 						<div
-							class="flex h-9 w-9 items-center justify-center rounded-full border">
+							class="flex h-9 w-9 items-center justify-center rounded-full border"
+						>
 							<Check
 								v-if="s.status === 'completed'"
-								class="h-4 w-4 text-emerald-600" />
+								class="h-4 w-4 text-emerald-600"
+							/>
 							<Camera
 								v-else-if="s.status === 'available'"
-								class="h-4 w-4" />
+								class="h-4 w-4"
+							/>
 							<Lock
 								v-else-if="s.status === 'locked'"
-								class="h-4 w-4 text-muted-foreground" />
+								class="h-4 w-4 text-muted-foreground"
+							/>
 							<X v-else class="h-4 w-4 text-red-500" />
 						</div>
 						<Badge :variant="badge(s.status) as any">
@@ -155,12 +162,14 @@ const badge = (s: string) =>
 					autoplay
 					playsinline
 					muted
-					class="aspect-video w-full rounded-xl object-cover" />
+					class="aspect-video w-full rounded-xl object-cover"
+				/>
 				<div class="mt-3 flex gap-2">
 					<Button class="flex-1" :disabled="busy" @click="verify">
 						<Loader2
 							v-if="busy"
-							class="mr-2 h-4 w-4 animate-spin" />
+							class="mr-2 h-4 w-4 animate-spin"
+						/>
 						<Camera v-else class="mr-2 h-4 w-4" />
 						Tasdiqlash
 					</Button>
@@ -172,12 +181,14 @@ const badge = (s: string) =>
 			</div>
 			<div
 				v-if="error"
-				class="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+				class="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700"
+			>
 				{{ error }}
 			</div>
 			<div
 				v-if="success"
-				class="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">
+				class="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700"
+			>
 				{{ success }}
 			</div>
 		</CardContent>

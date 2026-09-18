@@ -12,7 +12,7 @@ const error = ref("");
 if (auth.access && auth.user) await navigateTo(`/${auth.user.role}`);
 
 const hemisTeacherLogin = () => {
-	useCookie("type").value = "teacher";
+	useCookie("hemis_type").value = "teacher";
 	navigateTo(
 		`${runtimeConfig.public.hemisTeacherURL}?client_id=${runtimeConfig.public.hemisClientID}&redirect_uri=${runtimeConfig.public.hemisRedirectUri}&response_type=code`,
 		{
@@ -22,7 +22,7 @@ const hemisTeacherLogin = () => {
 };
 
 const hemisStudentLogin = () => {
-	useCookie("type").value = "student";
+	useCookie("hemis_type").value = "student";
 	navigateTo(
 		`${runtimeConfig.public.hemisStudentURL}?client_id=${runtimeConfig.public.hemisClientID}&redirect_uri=${runtimeConfig.public.hemisRedirectUri}&response_type=code`,
 		{
@@ -58,13 +58,11 @@ async function localLogin() {
 		<div
 			class="grid w-full overflow-hidden rounded-3xl shadow-2xl lg:grid-cols-2"
 		>
-			<section class="hidden p-10 lg:flex lg:flex-col lg:justify-between">
+			<section
+				class="hidden p-10 bg-accent/40 lg:flex lg:flex-col lg:justify-between"
+			>
 				<div>
-					<div
-						class="inline-flex h-12 w-12 items-center justify-center rounded-2xl font-black bg-foreground text-background"
-					>
-						PC
-					</div>
+					<img src="/images/logo.png" class="size-12" alt="" />
 					<h1 class="mt-8 text-4xl font-bold leading-tight">
 						Amaliyot davomatini aniq nazorat qiling.
 					</h1>

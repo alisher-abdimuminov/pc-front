@@ -9,36 +9,95 @@ import {
 	UserRoundCheck,
 	FileCheck2,
 	ShieldAlert,
+	UserGroup,
+	ListCheck,
 } from "@lucide/vue";
 const auth = useAuthStore();
 const route = useRoute();
 const menus: any = {
 	student: [
-		{ to: "/student", label: "Bosh sahifa", icon: LayoutDashboard },
+		{
+			to: "/student",
+			label: "Bosh sahifa",
+			icon: LayoutDashboard,
+			klass: "bg-indigo-600",
+		},
 		{
 			to: "/student/assignments",
 			label: "Topshiriqlar",
 			icon: ClipboardList,
+			klass: "bg-emerald-600",
 		},
 	],
 	teacher: [
-		{ to: "/teacher", label: "Bosh sahifa", icon: LayoutDashboard },
-		{ to: "/teacher/groups", label: "Guruhlar", icon: Users },
+		{
+			to: "/teacher",
+			label: "Bosh sahifa",
+			icon: LayoutDashboard,
+			klass: "bg-indigo-600",
+		},
+		{
+			to: "/teacher/groups",
+			label: "Guruhlar",
+			icon: Users,
+			klass: "bg-amber-600",
+		},
 		{
 			to: "/teacher/assignments",
 			label: "Topshiriqlar",
 			icon: ClipboardList,
+			klass: "bg-emerald-600",
 		},
-		{ to: "/teacher/attendance", label: "Davomat", icon: UserRoundCheck },
+		{
+			to: "/teacher/attendance",
+			label: "Davomat",
+			icon: UserRoundCheck,
+			klass: "bg-rose-600",
+		},
 	],
 	admin: [
-		{ to: "/admin", label: "Bosh sahifa", icon: LayoutDashboard },
-		{ to: "/admin/groups", label: "Guruhlar", icon: Users },
-		{ to: "/admin/locations", label: "Joylashuvlar", icon: MapPin },
-		{ to: "/admin/schedules", label: "Dars jadvali", icon: CalendarDays },
-		{ to: "/admin/users", label: "Foydalanuvchilar", icon: FileCheck2 },
-		{ to: "/admin/attendance", label: "Davomat", icon: UserRoundCheck },
-		{ to: "/admin/attempts", label: "Xato urinishlar", icon: ShieldAlert },
+		{
+			to: "/admin",
+			label: "Bosh sahifa",
+			icon: LayoutDashboard,
+			klass: "bg-indigo-600",
+		},
+		{
+			to: "/admin/groups",
+			label: "Guruhlar",
+			icon: UserGroup,
+			klass: "bg-amber-600",
+		},
+		{
+			to: "/admin/locations",
+			label: "Joylashuvlar",
+			icon: MapPin,
+			klass: "bg-emerald-600",
+		},
+		{
+			to: "/admin/schedules",
+			label: "Dars jadvali",
+			icon: CalendarDays,
+			klass: "bg-sky-600",
+		},
+		{
+			to: "/admin/users",
+			label: "Foydalanuvchilar",
+			icon: Users,
+			klass: "bg-amber-600",
+		},
+		{
+			to: "/admin/attendance",
+			label: "Davomat",
+			icon: UserRoundCheck,
+			klass: "bg-lime-600",
+		},
+		{
+			to: "/admin/attempts",
+			label: "Urinishlar",
+			icon: ListCheck,
+			klass: "bg-fuchsia-600",
+		},
 	],
 };
 const items = computed(() => menus[auth.user?.role || "student"] || []);
@@ -52,11 +111,7 @@ function logout() {
 		class="fixed inset-y-0 left-0 z-30 hidden w-64 border-r md:flex md:flex-col"
 	>
 		<div class="flex h-16 items-center border-b px-5">
-			<div
-				class="flex h-9 w-9 items-center justify-center rounded-xl bg-foreground font-bold text-background"
-			>
-				PC
-			</div>
+			<img src="/images/logo.png" class="size-10" alt="" />
 			<div class="ml-3">
 				<div class="font-bold">Amaliyot nazorati</div>
 				<div class="text-xs">Monitoring platformasi</div>
@@ -73,10 +128,12 @@ function logout() {
 						? 'bg-accent'
 						: 'hover:bg-accent'
 				"
-				><component :is="i.icon" class="h-4 w-4" />{{
-					i.label
-				}}</NuxtLink
 			>
+				<div class="p-2 rounded-lg text-white" :class="i.klass">
+					<component :is="i.icon" class="h-4 w-4" />
+				</div>
+				{{ i.label }}
+			</NuxtLink>
 		</nav>
 		<div class="border-t p-3">
 			<button

@@ -9,9 +9,9 @@ const error = ref("");
 
 onMounted(async () => {
 	const code = String(route.query.code || "");
-	const type = (sessionStorage.getItem("hemis_type") ||
-		route.query.type ||
-		"student") as string;
+	const type = (useCookie("hemis_type").value || route.query.type) as string;
+
+	console.log("hemis_type", type);
 	if (!code) {
 		error.value = "HEMIS authorization code topilmadi.";
 		return;
@@ -22,7 +22,6 @@ onMounted(async () => {
 			body: { code, type },
 		});
 		auth.setSession(d);
-		sessionStorage.removeItem("hemis_type");
 		console.log("redirect");
 		await navigateTo(`/${d.user.role}`);
 	} catch (e) {

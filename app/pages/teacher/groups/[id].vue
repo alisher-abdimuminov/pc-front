@@ -13,15 +13,17 @@ onMounted(async () => {
 });
 </script>
 <template>
-	<PageTitle
+	<AppPageTitle
 		:title="group?.name || 'Guruh'"
-		:description="`${students.length} ta talaba`" />
+		:description="`${students.length} ta talaba`"
+	/>
 	<Card>
 		<CardContent class="p-0">
 			<div class="overflow-x-auto">
 				<table class="w-full text-left text-sm">
 					<thead
-						class="border-b text-xs uppercase text-muted-foreground">
+						class="border-b text-xs uppercase text-muted-foreground"
+					>
 						<tr>
 							<th class="p-4">Talaba</th>
 							<th class="p-4">HEMIS ID</th>
@@ -34,13 +36,15 @@ onMounted(async () => {
 						<tr
 							v-for="s in students"
 							:key="s.id"
-							class="border-b last:border-0">
+							class="border-b last:border-0"
+						>
 							<td class="p-4">
 								<div class="flex items-center gap-3">
 									<img
 										v-if="s.image"
 										:src="s.image as string"
-										class="h-9 w-9 rounded-full object-cover" />
+										class="h-9 w-9 rounded-full object-cover"
+									/>
 									<div class="font-medium">
 										{{ s.full_name }}
 									</div>
@@ -56,8 +60,9 @@ onMounted(async () => {
 			</div>
 		</CardContent>
 	</Card>
-	<EmptyState
+	<AppEmptyState
 		v-if="!students.length"
 		class="mt-4"
-		title="Talabalar topilmadi" />
+		title="Talabalar topilmadi"
+	/>
 </template>

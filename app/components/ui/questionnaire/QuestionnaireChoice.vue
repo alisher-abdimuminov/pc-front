@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import type { HTMLAttributes } from "vue"
-import { CheckIcon } from "@lucide/vue"
-import { computed, onBeforeUnmount, ref, useId, watch } from "vue"
-import { cn } from "@/lib/utils"
-import { getAnswerKeyShortcuts, injectQuestionnaireItemContext } from "./useQuestionnaire"
+import type { HTMLAttributes } from 'vue'
+
+import { CheckIcon } from '@lucide/vue'
+import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { cn } from '@/lib/utils'
+import { getAnswerKeyShortcuts, injectQuestionnaireItemContext } from './useQuestionnaire'
 
 const props = withDefaults(defineProps<{
   /** Controlled checked state. Use with `v-model:checked`. */
   checked?: boolean
-  class?: HTMLAttributes["class"]
+  class?: HTMLAttributes['class']
   /** Checks the choice on mount and after a native form reset. */
   defaultChecked?: boolean
   disabled?: boolean
@@ -23,8 +24,8 @@ const props = withDefaults(defineProps<{
 })
 
 const emits = defineEmits<{
-  "change": [event: Event]
-  "update:checked": [checked: boolean]
+  'change': [event: Event]
+  'update:checked': [checked: boolean]
 }>()
 
 const item = injectQuestionnaireItemContext()
@@ -42,9 +43,9 @@ const checked = computed(() => {
   }
 
   // A skipped item clears every answer, including controlled ones.
-  return item.status.value === "skipped" ? false : props.checked!
+  return item.status.value === 'skipped' ? false : props.checked!
 })
-const type = computed(() => (item.multiple.value ? "checkbox" : "radio"))
+const type = computed(() => (item.multiple.value ? 'checkbox' : 'radio'))
 const shortcut = computed(() =>
   item.shortcutByChoiceValue.value?.get(props.value)
   ?? item.shortcutByAnswerId.value.get(answerId)
@@ -57,7 +58,7 @@ function syncCheckedElement() {
 }
 
 function handleChange(event: Event) {
-  emits("change", event)
+  emits('change', event)
 
   if (event.defaultPrevented) {
     syncCheckedElement()
@@ -66,7 +67,7 @@ function handleChange(event: Event) {
 
   const nextChecked = (event.target as HTMLInputElement).checked
 
-  emits("update:checked", nextChecked)
+  emits('update:checked', nextChecked)
 
   if (!controlled.value) {
     item.setAnswerSelectionFromInteraction(answerId, nextChecked)
@@ -74,7 +75,7 @@ function handleChange(event: Event) {
   }
 
   // Re-selecting the same controlled choice has to clear the skipped state.
-  if (item.status.value === "skipped" && props.checked === nextChecked) {
+  if (item.status.value === 'skipped' && props.checked === nextChecked) {
     item.setAnswerSelectionFromInteraction(answerId, props.checked)
   }
 
@@ -100,10 +101,10 @@ watch([inputElement, disabled, () => props.disabled, () => props.value], ([eleme
     element,
     id: answerId,
     ownDisabled: props.disabled,
-    type: "choice",
+    type: 'choice',
     value: props.value,
   })
-}, { flush: "post" })
+}, { flush: 'post' })
 
 watch(() => props.defaultChecked, (defaultChecked) => {
   item.setAnswerDefault(answerId, defaultChecked)
@@ -115,7 +116,7 @@ watch([() => props.checked, item.resetVersion], () => {
   }
 }, { immediate: true })
 
-watch(item.controlSyncVersion, syncCheckedElement, { flush: "post" })
+watch(item.controlSyncVersion, syncCheckedElement, { flush: 'post' })
 
 watch([checked, inputElement, () => props.defaultChecked, item.resetVersion], () => {
   if (!inputElement.value) {
@@ -127,7 +128,7 @@ watch([checked, inputElement, () => props.defaultChecked, item.resetVersion], ()
   inputElement.value.defaultChecked = controlled.value ? props.checked! : props.defaultChecked
 
   syncCheckedElement()
-}, { flush: "post" })
+}, { flush: 'post' })
 
 onBeforeUnmount(() => {
   unregisterControl?.()
@@ -146,7 +147,7 @@ onBeforeUnmount(() => {
     :data-type="type"
     :data-unchecked="checked ? undefined : ''"
     :class="cn(
-      'border-input dark:bg-input/20 hover:bg-muted/50 data-checked:border-primary/40 data-checked:bg-muted dark:data-checked:bg-muted data-invalid:border-destructive has-[>input:focus-visible]:border-ring has-[>input:focus-visible]:ring-ring/50 gap-3 rounded-md border bg-transparent px-4 py-3.5 text-sm shadow-xs has-[>input:focus-visible]:ring-3 group/questionnaire-choice relative flex min-h-11 cursor-pointer items-start text-start transition-colors outline-none select-none',
+      'border-input bg-input/20 hover:bg-input/40 data-checked:border-primary/40 data-checked:bg-primary/10 data-invalid:border-destructive has-[>input:focus-visible]:border-ring has-[>input:focus-visible]:ring-ring/50 gap-2.5 rounded-3xl border px-4 py-3 text-sm has-[>input:focus-visible]:ring-3 group/questionnaire-choice relative flex min-h-11 cursor-pointer items-start text-start transition-colors outline-none select-none',
       'data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-disabled:opacity-50',
       props.class,
     )"
@@ -171,16 +172,13 @@ onBeforeUnmount(() => {
     <span
       aria-hidden="true"
       data-slot="questionnaire-choice-indicator"
-      class="border-input dark:bg-input/30 group-data-checked/questionnaire-choice:bg-primary dark:group-data-checked/questionnaire-choice:bg-primary group-data-checked/questionnaire-choice:text-primary-foreground group-data-checked/questionnaire-choice:border-primary size-4 translate-y-[--spacing(0.45)] group-has-data-[slot=questionnaire-choice-description]/questionnaire-choice:translate-y-0.5 rounded-[4px] pointer-events-none relative flex shrink-0 items-center justify-center border group-data-[type=radio]/questionnaire-choice:rounded-full"
+      class="bg-input/90 group-data-checked/questionnaire-choice:bg-primary dark:group-data-checked/questionnaire-choice:bg-primary group-data-checked/questionnaire-choice:text-primary-foreground group-data-checked/questionnaire-choice:border-primary size-4 translate-y-[--spacing(0.45)] group-has-data-[slot=questionnaire-choice-description]/questionnaire-choice:translate-y-0.5 rounded-[5px] border-transparent pointer-events-none relative flex shrink-0 items-center justify-center border group-data-[type=radio]/questionnaire-choice:rounded-full"
     >
       <span
         data-slot="questionnaire-choice-indicator-dot"
-        class="bg-primary-foreground size-2 hidden rounded-full group-data-[type=checkbox]/questionnaire-choice:hidden group-data-checked/questionnaire-choice:block"
+        class="bg-primary-foreground size-2 dark:size-2.5 hidden rounded-full group-data-[type=checkbox]/questionnaire-choice:hidden group-data-checked/questionnaire-choice:block"
       />
-      <CheckIcon
-        data-slot="questionnaire-choice-indicator-check"
-        class="size-3.5 hidden group-data-[type=radio]/questionnaire-choice:hidden group-data-checked/questionnaire-choice:block"
-      />
+      <CheckIcon data-slot="questionnaire-choice-indicator-check" class="size-3.5 hidden group-data-[type=radio]/questionnaire-choice:hidden group-data-checked/questionnaire-choice:block" />
     </span>
     <span
       data-slot="questionnaire-choice-label"
@@ -192,7 +190,7 @@ onBeforeUnmount(() => {
       v-if="shortcut"
       aria-hidden="true"
       data-slot="questionnaire-choice-shortcut"
-      class="border-input bg-background text-muted-foreground size-5 translate-y-[--spacing(0.45)] group-has-data-[slot=questionnaire-choice-description]/questionnaire-choice:translate-y-0.5 items-center justify-center rounded-md border font-mono text-[0.625rem] font-medium leading-none shadow-xs pointer-events-none ms-auto hidden shrink-0 group-data-[shortcut]/questionnaire-choice:inline-flex"
+      class="border-primary/10 bg-background/80 text-muted-foreground size-5 translate-y-[--spacing(0.45)] group-has-data-[slot=questionnaire-choice-description]/questionnaire-choice:translate-y-0.5 items-center justify-center rounded-full border font-mono text-[0.625rem] font-medium leading-none pointer-events-none ms-auto hidden shrink-0 group-data-[shortcut]/questionnaire-choice:inline-flex"
     >
       {{ shortcut }}
     </span>

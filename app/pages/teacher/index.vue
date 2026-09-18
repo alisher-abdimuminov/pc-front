@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "teacher" });
-import { Users, ClipboardList, UserCheck } from "@lucide/vue";
+import { Users, ClipboardList, UserCheck, UserGroup } from "@lucide/vue";
 import type { Group, Assignment, Attendance } from "@/types/api";
 const { api } = useApi();
 const groups = ref<Group[]>([]),
@@ -17,22 +17,27 @@ onMounted(async () => {
 });
 </script>
 <template>
-	<PageTitle
+	<AppPageTitle
 		title="O‘qituvchi paneli"
-		description="Biriktirilgan guruhlar, vazifalar va bugungi davomat." />
+		description="Biriktirilgan guruhlar, vazifalar va bugungi davomat."
+	/>
 	<div class="grid gap-4 sm:grid-cols-3">
-		<Card>
+		<Card class="border border-amber-600">
 			<CardContent class="flex items-center gap-4 py-5">
-				<Users class="h-5 w-5" />
+				<div class="bg-amber-600 p-2 rounded-xl text-white">
+					<UserGroup class="h-5 w-5" />
+				</div>
 				<div>
 					<div class="text-sm text-muted-foreground">Guruhlar</div>
 					<div class="text-2xl font-bold">{{ groups.length }}</div>
 				</div>
 			</CardContent>
 		</Card>
-		<Card>
+		<Card class="border border-emerald-600">
 			<CardContent class="flex items-center gap-4 py-5">
-				<ClipboardList class="h-5 w-5" />
+				<div class="bg-emerald-600 p-2 rounded-xl text-white">
+					<ClipboardList class="h-5 w-5" />
+				</div>
 				<div>
 					<div class="text-sm text-muted-foreground">
 						Topshiriqlar
@@ -43,9 +48,11 @@ onMounted(async () => {
 				</div>
 			</CardContent>
 		</Card>
-		<Card>
+		<Card class="border border-rose-600">
 			<CardContent class="flex items-center gap-4 py-5">
-				<UserCheck class="h-5 w-5" />
+				<div class="bg-rose-600 p-2 rounded-xl text-white">
+					<UserCheck class="h-5 w-5" />
+				</div>
 				<div>
 					<div class="text-sm text-muted-foreground">
 						Bugun qatnashgan
@@ -63,7 +70,8 @@ onMounted(async () => {
 			<NuxtLink
 				v-for="g in groups"
 				:key="g.id"
-				:to="`/teacher/groups/${g.id}`">
+				:to="`/teacher/groups/${g.id}`"
+			>
 				<Card class="transition hover:-translate-y-0.5 hover:shadow-md">
 					<CardContent class="py-5">
 						<div class="font-semibold">{{ g.name }}</div>
