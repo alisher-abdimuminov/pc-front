@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "admin" });
 
-import { Plus, Pencil, Trash2 } from "@lucide/vue";
+import { Plus, Pencil, Trash2, Loader2, RefreshCw, Search } from "@lucide/vue";
 
 import type { Group, User } from "@/types/api";
 
@@ -11,6 +11,57 @@ const groups = ref<Group[]>([]);
 const users = ref<User[]>([]);
 const error = ref("");
 const loading = ref(false);
+const syncing = ref(false);
+const syncMessage = ref("");
+
+/* ----------------------------------
+ * SEARCH + PAGINATION
+ * ---------------------------------- */
+
+const search = ref("");
+
+const currentPage = ref(1);
+const pageSize = 10;
+
+const filteredGroups = computed(() => {
+	const query = search.value.trim().toLowerCase();
+
+	if (!query) {
+		return groups.value;
+	}
+
+	return groups.value.filter((group) => {
+		const text = [group.name, group.teacher_name]
+			.filter(Boolean)
+			.join(" ")
+			.toLowerCase();
+
+		return text.includes(query);
+	});
+});
+
+const paginatedGroups = computed(() => {
+	const start = (currentPage.value - 1) * pageSize;
+
+	const end = start + pageSize;
+
+	return filteredGroups.value.slice(start, end);
+});
+
+watch(search, () => {
+	currentPage.value = 1;
+});
+
+watch(
+	() => filteredGroups.value.length,
+	(length) => {
+		const totalPages = Math.max(1, Math.ceil(length / pageSize));
+
+		if (currentPage.value > totalPages) {
+			currentPage.value = totalPages;
+		}
+	},
+);
 
 /* ----------------------------------
  * CREATE
@@ -33,6 +84,34 @@ const editingGroup = ref<Group | null>(null);
 const editForm = reactive({
 	teacher: "",
 });
+
+/* ----------------------------------
+ * SYNC GROUPS
+ * ---------------------------------- */
+
+async function syncGroups() {
+	syncing.value = true;
+
+	error.value = "";
+	syncMessage.value = "";
+
+	try {
+		const response = await api<any>("/groups/sync-groups/", {
+			method: "POST",
+		});
+
+		syncMessage.value =
+			`${response.total} ta guruh tekshirildi. ` +
+			`${response.created} ta yangi, ` +
+			`${response.updated} ta yangilandi.`;
+
+		await load();
+	} catch (e) {
+		error.value = errorMessage(e);
+	} finally {
+		syncing.value = false;
+	}
+}
 
 /* ----------------------------------
  * COMPUTED
@@ -136,7 +215,9 @@ async function saveTeacher() {
 		});
 
 		editDialogOpen.value = false;
+
 		editingGroup.value = null;
+
 		editForm.teacher = "";
 
 		await load();
@@ -158,7 +239,9 @@ function openDeleteDialog(group: Group) {
 }
 
 async function confirmDelete() {
-	if (!deletingGroup.value) return;
+	if (!deletingGroup.value) {
+		return;
+	}
 
 	try {
 		await api(`/groups/${deletingGroup.value.id}/`, {
@@ -166,6 +249,7 @@ async function confirmDelete() {
 		});
 
 		deleteDialogOpen.value = false;
+
 		deletingGroup.value = null;
 
 		await load();
@@ -178,16 +262,32 @@ async function confirmDelete() {
 <template>
 	<div>
 		<!-- Header -->
+
 		<div class="mb-5 flex items-center justify-between gap-4">
 			<AppPageTitle title="Guruhlar" />
 
-			<Button @click="openCreateDialog">
-				<Plus class="mr-2 h-4 w-4" />
-				Guruh qo‘shish
-			</Button>
+			<div class="flex flex-col gap-2 sm:flex-row">
+				<Button @click="openCreateDialog">
+					<Plus class="mr-2 h-4 w-4" />
+					Guruh qo‘shish
+				</Button>
+
+				<Button
+					variant="outline"
+					:disabled="syncing"
+					@click="syncGroups"
+				>
+					<Loader2 v-if="syncing" class="mr-2 h-4 w-4 animate-spin" />
+
+					<RefreshCw v-else class="mr-2 h-4 w-4" />
+
+					{{ syncing ? "Tortilmoqda..." : "Hemisdan torish" }}
+				</Button>
+			</div>
 		</div>
 
 		<!-- Error -->
+
 		<div
 			v-if="error"
 			class="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700"
@@ -195,7 +295,33 @@ async function confirmDelete() {
 			{{ error }}
 		</div>
 
+		<!-- Sync success -->
+
+		<div
+			v-if="syncMessage"
+			class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"
+		>
+			{{ syncMessage }}
+		</div>
+
+		<!-- Search -->
+
+		<div class="mb-4 max-w-md">
+			<div class="relative">
+				<Search
+					class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+				/>
+
+				<Input
+					v-model="search"
+					class="pl-9"
+					placeholder="Guruh yoki o‘qituvchi bo‘yicha qidirish..."
+				/>
+			</div>
+		</div>
+
 		<!-- Table -->
+
 		<Card>
 			<CardContent class="p-0">
 				<Table>
@@ -216,6 +342,8 @@ async function confirmDelete() {
 					</TableHeader>
 
 					<TableBody>
+						<!-- Loading -->
+
 						<TableRow v-if="loading">
 							<TableCell
 								colspan="5"
@@ -225,22 +353,30 @@ async function confirmDelete() {
 							</TableCell>
 						</TableRow>
 
-						<TableRow v-else-if="!groups.length">
+						<!-- Empty -->
+
+						<TableRow v-else-if="!filteredGroups.length">
 							<TableCell
 								colspan="5"
 								class="py-10 text-center text-sm text-muted-foreground"
 							>
-								Guruhlar mavjud emas.
+								{{
+									search
+										? "Qidiruv bo‘yicha guruh topilmadi."
+										: "Guruhlar mavjud emas."
+								}}
 							</TableCell>
 						</TableRow>
 
+						<!-- Groups -->
+
 						<TableRow
-							v-for="(group, index) in groups"
+							v-for="(group, index) in paginatedGroups"
 							v-else
 							:key="group.id"
 						>
 							<TableCell>
-								{{ index + 1 }}
+								{{ (currentPage - 1) * pageSize + index + 1 }}
 							</TableCell>
 
 							<TableCell class="font-medium">
@@ -283,6 +419,49 @@ async function confirmDelete() {
 						</TableRow>
 					</TableBody>
 				</Table>
+
+				<!-- Pagination -->
+
+				<div
+					v-if="filteredGroups.length > pageSize"
+					class="flex items-center justify-between gap-4 border-t px-4 py-4"
+				>
+					<p class="hidden text-sm text-muted-foreground sm:block">
+						Jami
+						{{ filteredGroups.length }}
+						ta guruh
+					</p>
+
+					<Pagination
+						v-model:page="currentPage"
+						:total="filteredGroups.length"
+						:items-per-page="pageSize"
+						:sibling-count="1"
+						show-edges
+						class="ml-auto"
+					>
+						<PaginationContent v-slot="{ items }">
+							<PaginationPrevious />
+
+							<template
+								v-for="(item, index) in items"
+								:key="index"
+							>
+								<PaginationItem
+									v-if="item.type === 'page'"
+									:value="item.value"
+									:is-active="item.value === currentPage"
+								>
+									{{ item.value }}
+								</PaginationItem>
+
+								<PaginationEllipsis v-else :index="index" />
+							</template>
+
+							<PaginationNext />
+						</PaginationContent>
+					</Pagination>
+				</div>
 			</CardContent>
 		</Card>
 
@@ -338,6 +517,7 @@ async function confirmDelete() {
 
 					<Button @click="create">
 						<Plus class="mr-2 h-4 w-4" />
+
 						Qo‘shish
 					</Button>
 				</DialogFooter>
@@ -391,6 +571,7 @@ async function confirmDelete() {
 		</Dialog>
 
 		<!-- ============== DELETE DIALOG ============== -->
+
 		<Dialog v-model:open="deleteDialogOpen">
 			<DialogContent class="sm:max-w-md">
 				<DialogHeader>
@@ -398,7 +579,10 @@ async function confirmDelete() {
 
 					<DialogDescription>
 						<span v-if="deletingGroup">
-							<strong>{{ deletingGroup.name }}</strong>
+							<strong>
+								{{ deletingGroup.name }}
+							</strong>
+
 							guruhini o‘chirmoqchimisiz? Bu amalni ortga qaytarib
 							bo‘lmaydi.
 						</span>
@@ -412,6 +596,7 @@ async function confirmDelete() {
 
 					<Button variant="destructive" @click="confirmDelete">
 						<Trash2 class="mr-2 h-4 w-4" />
+
 						O‘chirish
 					</Button>
 				</DialogFooter>

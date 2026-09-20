@@ -1,9 +1,12 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "student" });
+
 import { ClipboardList, GraduationCap } from "@lucide/vue";
 import type { TodayAttendance, Assignment } from "@/types/api";
+
 const auth = useAuthStore();
 const { api } = useApi();
+
 const attendance = ref<TodayAttendance>({
 	has_schedule: false,
 	date: "",
@@ -11,28 +14,55 @@ const attendance = ref<TodayAttendance>({
 });
 const assignments = ref<Assignment[]>([]);
 const loading = ref(true);
-async function load() {
-	loading.value = true;
-	try {
-		[attendance.value, assignments.value] = await Promise.all([
-			api("/attendance/today/"),
-			api("/assignments/"),
-		]);
-	} finally {
-		loading.value = false;
-	}
-}
-onMounted(load);
+const locationLoading = ref(true);
+const locationError = ref("");
+const locationAllowed = ref(false);
+
+const coordinates = reactive({
+	latitude: 0,
+	longitude: 0,
+});
+
 const upcoming = computed(() =>
 	assignments.value
 		.filter((a) => new Date(a.deadline) >= new Date())
 		.slice(0, 4),
 );
+
+const locationResult = ref<{
+	has_class: boolean;
+	inside: boolean;
+	message: string;
+	location?: {
+		id: number;
+		name: string;
+	};
+} | null>(null);
+
+const faceDrawerOpen = ref(false);
+const selectedStep = ref<number | null>(null);
+
+async function load() {
+	loading.value = true;
+	try {
+		[attendance.value, assignments.value] = await Promise.all([
+			api<TodayAttendance>("/attendance/today/"),
+			api<Assignment[]>("/assignments/"),
+		]);
+	} finally {
+		loading.value = false;
+	}
+}
+
+onMounted(async () => {
+	await load();
+});
 </script>
 <template>
 	<AppPageTitle
 		:title="`Salom, ${auth.user?.full_name || ''}`"
-		:description="`${auth.user?.group_name || 'Guruh biriktirilmagan'} • ${auth.user?.faculty || ''}`" />
+		:description="`${auth.user?.group_name || 'Guruh biriktirilmagan'} • ${auth.user?.faculty || ''}`"
+	/>
 	<div v-if="loading" class="grid gap-4">
 		<div class="h-64 animate-pulse rounded-2xl" />
 	</div>
@@ -79,7 +109,8 @@ const upcoming = computed(() =>
 				<h2 class="text-lg font-semibold">Yaqin topshiriqlar</h2>
 				<NuxtLink
 					to="/student/assignments"
-					class="text-sm font-medium text-muted-foreground">
+					class="text-sm font-medium text-muted-foreground"
+				>
 					Barchasi →
 				</NuxtLink>
 			</div>
@@ -94,7 +125,8 @@ const upcoming = computed(() =>
 								</div>
 							</div>
 							<Badge
-								:variant="a.submitted ? 'outline' : 'default'">
+								:variant="a.submitted ? 'outline' : 'default'"
+							>
 								{{ a.submitted ? "Yuborilgan" : "Kutilmoqda" }}
 							</Badge>
 						</div>

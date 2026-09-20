@@ -7,190 +7,603 @@ import {
 	X,
 	Loader2,
 	RotateCcw,
+	AlertTriangle,
+	Navigation,
+	CheckCircle2,
 } from "@lucide/vue";
+
 import type { TodayAttendance } from "@/types/api";
-const props = defineProps<{ data: TodayAttendance }>();
-const emit = defineEmits<{ refresh: [] }>();
+
+const props = defineProps<{
+	data: TodayAttendance;
+}>();
+
+const emit = defineEmits<{
+	refresh: [];
+}>();
+
 const { api, errorMessage } = useApi();
-const selected = ref<number | null>(null);
-const stream = ref<MediaStream | null>(null);
-const video = ref<HTMLVideoElement | null>(null);
-const busy = ref(false);
-const error = ref("");
+
+/* ----------------------------------
+ * FACE DRAWER
+ * ---------------------------------- */
+
+const faceDrawerOpen = ref(false);
+
+const selectedStep = ref<number | null>(null);
+
+/* ----------------------------------
+ * LOCATION
+ * ---------------------------------- */
+
+const locationLoading = ref(false);
+
+const locationError = ref("");
+
+const locationResult = ref<{
+	has_class: boolean;
+	inside: boolean;
+	message: string;
+
+	location?: {
+		id: number;
+		name: string;
+	};
+} | null>(null);
+
+const coordinates = reactive({
+	latitude: 0,
+	longitude: 0,
+});
+
+/* ----------------------------------
+ * SUCCESS
+ * ---------------------------------- */
+
 const success = ref("");
-async function openCamera(step: number) {
-	selected.value = step;
-	error.value = "";
-	success.value = "";
-	try {
-		stream.value = await navigator.mediaDevices.getUserMedia({
-			video: { facingMode: "user" },
-			audio: false,
-		});
-		await nextTick();
-		if (video.value) video.value.srcObject = stream.value;
-	} catch {
-		error.value = "Kameraga ruxsat berilmadi.";
-	}
-}
-function closeCamera() {
-	stream.value?.getTracks().forEach((t) => t.stop());
-	stream.value = null;
-	selected.value = null;
-}
+
+/* ----------------------------------
+ * LOCATION STATE
+ * ---------------------------------- */
+
+const locationAllowed = computed(() => locationResult.value?.inside === true);
+
+const locationChecked = computed(() => locationResult.value !== null);
+
+/* ----------------------------------
+ * GET BROWSER LOCATION
+ * ---------------------------------- */
+
 function getPosition() {
-	return new Promise<GeolocationPosition>((res, rej) =>
-		navigator.geolocation.getCurrentPosition(res, rej, {
+	return new Promise<GeolocationPosition>((resolve, reject) => {
+		if (!navigator.geolocation) {
+			reject(new Error("Geolocation mavjud emas"));
+
+			return;
+		}
+
+		navigator.geolocation.getCurrentPosition(resolve, reject, {
 			enableHighAccuracy: true,
+
 			timeout: 15000,
+
 			maximumAge: 0,
-		}),
-	);
+		});
+	});
 }
-async function verify() {
-	if (!video.value || !selected.value) return;
-	busy.value = true;
-	error.value = "";
+
+/* ----------------------------------
+ * CHECK LOCATION
+ * ---------------------------------- */
+
+async function requestLocation() {
+	if (!props.data.has_schedule) {
+		return;
+	}
+
+	locationLoading.value = true;
+
+	locationError.value = "";
+
+	locationResult.value = null;
+
+	success.value = "";
+
 	try {
-		const pos = await getPosition();
-		const canvas = document.createElement("canvas");
-		canvas.width = video.value.videoWidth || 720;
-		canvas.height = video.value.videoHeight || 720;
-		canvas
-			.getContext("2d")!
-			.drawImage(video.value, 0, 0, canvas.width, canvas.height);
-		const blob = await new Promise<Blob>((resolve, reject) =>
-			canvas.toBlob(
-				(b) => (b ? resolve(b) : reject()),
-				"image/jpeg",
-				0.9,
-			),
-		);
-		const fd = new FormData();
-		fd.append("face_image", blob, "attendance.jpg");
-		fd.append("latitude", String(pos.coords.latitude));
-		fd.append("longitude", String(pos.coords.longitude));
-		await api("/attendance/check/", { method: "POST", body: fd });
-		success.value = `${selected.value}-step muvaffaqiyatli tasdiqlandi`;
-		closeCamera();
-		emit("refresh");
-	} catch (e) {
-		error.value = errorMessage(e);
+		const position = await getPosition();
+
+		coordinates.latitude = position.coords.latitude;
+
+		coordinates.longitude = position.coords.longitude;
+
+		const response = await api<any>("/attendance/location-check/", {
+			method: "POST",
+
+			body: {
+				latitude: coordinates.latitude,
+
+				longitude: coordinates.longitude,
+			},
+		});
+
+		locationResult.value = response;
+	} catch (e: any) {
+		/*
+		 * Browser location error.
+		 */
+
+		if (e?.code === GeolocationPositionError.PERMISSION_DENIED) {
+			locationError.value =
+				"Davomatdan o‘tish uchun joylashuvga ruxsat berishingiz kerak.";
+		} else if (e?.code === GeolocationPositionError.POSITION_UNAVAILABLE) {
+			locationError.value = "Joylashuvingizni aniqlab bo‘lmadi.";
+		} else if (e?.code === GeolocationPositionError.TIMEOUT) {
+			locationError.value =
+				"Joylashuvni aniqlash vaqti tugadi. Qaytadan urinib ko‘ring.";
+		} else {
+			locationError.value = errorMessage(e);
+		}
 	} finally {
-		busy.value = false;
+		locationLoading.value = false;
 	}
 }
-onBeforeUnmount(() => closeCamera());
-const badge = (s: string) =>
-	s === "completed"
-		? "success"
-		: s === "available"
-			? "default"
-			: s === "missed"
-				? "destructive"
-				: "outline";
+
+/* ----------------------------------
+ * STEP
+ * ---------------------------------- */
+
+function openStep(step: number, status: string) {
+	/*
+	 * Faqat available step.
+	 */
+
+	if (status !== "available") {
+		return;
+	}
+
+	/*
+	 * Location tasdiqlanmagan.
+	 */
+
+	if (!locationAllowed.value) {
+		return;
+	}
+
+	selectedStep.value = step;
+
+	faceDrawerOpen.value = true;
+
+	success.value = "";
+}
+
+/* ----------------------------------
+ * DRAWER OPEN/CLOSE
+ * ---------------------------------- */
+
+function handleDrawerOpen(value: boolean) {
+	faceDrawerOpen.value = value;
+
+	if (!value) {
+		selectedStep.value = null;
+	}
+}
+
+/* ----------------------------------
+ * FACE SUCCESS
+ * ---------------------------------- */
+
+async function handleFaceSuccess() {
+	const step = selectedStep.value;
+
+	faceDrawerOpen.value = false;
+
+	selectedStep.value = null;
+
+	if (step) {
+		success.value = `${step}-step muvaffaqiyatli tasdiqlandi.`;
+	}
+
+	emit("refresh");
+
+	/*
+	 * Refreshdan keyin ham
+	 * locationni qayta tekshirib
+	 * o‘tirmaymiz.
+	 *
+	 * Backend /attendance/check/
+	 * requestida location yana
+	 * tekshirilishi kerak.
+	 */
+}
+
+/* ----------------------------------
+ * STEP BADGE
+ * ---------------------------------- */
+
+function badge(status: string) {
+	if (status === "completed") {
+		return "success";
+	}
+
+	if (status === "available") {
+		return "default";
+	}
+
+	if (status === "missed") {
+		return "destructive";
+	}
+
+	return "outline";
+}
+
+function statusLabel(status: string) {
+	if (status === "completed") {
+		return "Bajarildi";
+	}
+
+	if (status === "available") {
+		return "Ochiq";
+	}
+
+	if (status === "locked") {
+		return "Yopiq";
+	}
+
+	if (status === "missed") {
+		return "O‘tkazib yuborilgan";
+	}
+
+	return status;
+}
+
+/* ----------------------------------
+ * INIT
+ * ---------------------------------- */
+
+onMounted(() => {
+	if (props.data.has_schedule) {
+		requestLocation();
+	}
+});
+
+/*
+ * Parent data keyinroq kelsa ham
+ * location so‘raladi.
+ */
+
+watch(
+	() => props.data.has_schedule,
+
+	(value, oldValue) => {
+		if (
+			value &&
+			value !== oldValue &&
+			!locationChecked.value &&
+			!locationLoading.value
+		) {
+			requestLocation();
+		}
+	},
+);
 </script>
+
 <template>
-	<Card>
-		<CardHeader>
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<h2 class="font-semibold">Bugungi davomat</h2>
-					<p
-						v-if="data.has_schedule"
-						class="mt-1 flex items-center gap-1 text-sm text-muted-foreground"
-					>
-						<MapPin class="h-4 w-4" />
-						{{ data.location?.name }}
-					</p>
-				</div>
-				<Badge v-if="data.has_schedule" variant="outline">
-					{{ data.date }}
-				</Badge>
-			</div>
-		</CardHeader>
-		<CardContent>
-			<AppEmptyState
-				v-if="!data.has_schedule"
-				title="Bugun amaliyot yo‘q"
-				description="Guruhingiz uchun bugungi kunga jadval topilmadi."
-			/>
-			<div v-else class="grid gap-3 sm:grid-cols-3">
-				<button
-					v-for="s in data.steps"
-					:key="s.step"
-					class="rounded-2xl border-2 p-4 text-left"
-					:class="
-						s.status === 'available'
-							? 'bg-emerald-600/10 border-emerald-600 border-dashed'
-							: 'border'
-					"
-					:disabled="s.status !== 'available'"
-					@click="openCamera(s.step)"
+	<div>
+		<!-- =========================================
+		     LOCATION WARNING
+		     ========================================= -->
+
+		<Alert v-if="locationError" variant="destructive" class="mb-4">
+			<AlertTriangle class="h-4 w-4" />
+
+			<AlertTitle> Joylashuv aniqlanmadi </AlertTitle>
+
+			<AlertDescription>
+				<p>
+					{{ locationError }}
+				</p>
+
+				<Button
+					variant="outline"
+					size="sm"
+					class="mt-3"
+					:disabled="locationLoading"
+					@click="requestLocation"
 				>
-					<div class="flex items-center justify-between">
-						<div
-							class="flex h-9 w-9 items-center justify-center rounded-full border"
-						>
-							<Check
-								v-if="s.status === 'completed'"
-								class="h-4 w-4 text-emerald-600"
-							/>
-							<Camera
-								v-else-if="s.status === 'available'"
-								class="h-4 w-4"
-							/>
-							<Lock
-								v-else-if="s.status === 'locked'"
-								class="h-4 w-4 text-muted-foreground"
-							/>
-							<X v-else class="h-4 w-4 text-red-500" />
-						</div>
-						<Badge :variant="badge(s.status) as any">
-							{{ s.status }}
-						</Badge>
-					</div>
-					<div class="mt-5 font-semibold">Step {{ s.step }}</div>
-					<div class="mt-1 text-xs text-muted-foreground">
-						{{ s.start }} — {{ s.end }}
-					</div>
-				</button>
-			</div>
-			<div v-if="selected" class="mt-5 rounded-2xl border p-3">
-				<video
-					ref="video"
-					autoplay
-					playsinline
-					muted
-					class="aspect-video w-full rounded-xl object-cover"
-				/>
-				<div class="mt-3 flex gap-2">
-					<Button class="flex-1" :disabled="busy" @click="verify">
-						<Loader2
-							v-if="busy"
-							class="mr-2 h-4 w-4 animate-spin"
-						/>
-						<Camera v-else class="mr-2 h-4 w-4" />
-						Tasdiqlash
-					</Button>
-					<Button variant="outline" @click="closeCamera">
-						<RotateCcw class="mr-2 h-4 w-4" />
-						Bekor qilish
-					</Button>
-				</div>
-			</div>
-			<div
-				v-if="error"
-				class="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700"
-			>
-				{{ error }}
-			</div>
-			<div
-				v-if="success"
-				class="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700"
-			>
+					<Loader2
+						v-if="locationLoading"
+						class="mr-2 h-4 w-4 animate-spin"
+					/>
+
+					<RotateCcw v-else class="mr-2 h-4 w-4" />
+
+					Qayta urinish
+				</Button>
+			</AlertDescription>
+		</Alert>
+
+		<!-- =========================================
+		     OUTSIDE LOCATION
+		     ========================================= -->
+
+		<Alert
+			v-else-if="locationResult?.has_class && !locationResult.inside"
+			variant="destructive"
+			class="mb-4"
+		>
+			<MapPin class="h-4 w-4" />
+
+			<AlertTitle> Siz dars joyida emassiz </AlertTitle>
+
+			<AlertDescription>
+				<p>
+					{{
+						locationResult.message ||
+						"Siz dars bo‘ladigan joyda emassiz. Dars joyiga boring va qaytadan urinib ko‘ring."
+					}}
+				</p>
+
+				<p
+					v-if="locationResult.location?.name"
+					class="mt-2 font-medium"
+				>
+					Dars joyi:
+					{{ locationResult.location.name }}
+				</p>
+
+				<Button
+					variant="outline"
+					size="sm"
+					class="mt-3"
+					:disabled="locationLoading"
+					@click="requestLocation"
+				>
+					<Loader2
+						v-if="locationLoading"
+						class="mr-2 h-4 w-4 animate-spin"
+					/>
+
+					<Navigation v-else class="mr-2 h-4 w-4" />
+
+					Joylashuvni qayta tekshirish
+				</Button>
+			</AlertDescription>
+		</Alert>
+
+		<!-- =========================================
+		     LOCATION SUCCESS
+		     ========================================= -->
+
+		<Alert
+			v-else-if="locationResult?.inside"
+			class="mb-4 border-emerald-600 bg-emerald-600/10 text-emerald-600"
+		>
+			<CheckCircle2 class="h-4 w-4 text-emerald-600" />
+
+			<AlertTitle> Joylashuv tasdiqlandi </AlertTitle>
+
+			<AlertDescription>
+				<span v-if="locationResult.location?.name">
+					Siz
+					<strong>
+						{{ locationResult.location.name }}
+					</strong>
+					hududidasiz.
+				</span>
+
+				<span v-else> Davomatdan o‘tishingiz mumkin. </span>
+			</AlertDescription>
+		</Alert>
+
+		<!-- =========================================
+		     SUCCESS
+		     ========================================= -->
+
+		<Alert
+			v-if="success"
+			class="mb-4 border-emerald-200 bg-emerald-50 text-emerald-800"
+		>
+			<CheckCircle2 class="h-4 w-4 text-emerald-600" />
+
+			<AlertTitle> Davomat tasdiqlandi </AlertTitle>
+
+			<AlertDescription>
 				{{ success }}
-			</div>
-		</CardContent>
-	</Card>
+			</AlertDescription>
+		</Alert>
+
+		<!-- =========================================
+		     ATTENDANCE CARD
+		     ========================================= -->
+
+		<Card>
+			<CardHeader>
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<div>
+						<h2 class="font-semibold">Bugungi davomat</h2>
+
+						<p
+							v-if="data.has_schedule"
+							class="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"
+						>
+							<MapPin class="h-4 w-4" />
+
+							{{ data.location?.name }}
+						</p>
+					</div>
+
+					<Badge v-if="data.has_schedule" variant="outline">
+						{{ data.date }}
+					</Badge>
+				</div>
+			</CardHeader>
+
+			<CardContent>
+				<!-- =====================
+				     NO SCHEDULE
+				     ===================== -->
+
+				<AppEmptyState
+					v-if="!data.has_schedule"
+					title="Bugun amaliyot yo‘q"
+					description="Guruhingiz uchun bugungi kunga jadval topilmadi."
+				/>
+
+				<template v-else>
+					<!-- =====================
+					     LOCATION LOADING
+					     ===================== -->
+
+					<div
+						v-if="locationLoading"
+						class="mb-5 flex items-center gap-3 rounded-xl border bg-muted/20 p-4"
+					>
+						<Loader2
+							class="h-5 w-5 animate-spin text-muted-foreground"
+						/>
+
+						<div>
+							<p class="text-sm font-medium">
+								Joylashuv tekshirilmoqda
+							</p>
+
+							<p class="mt-1 text-xs text-muted-foreground">
+								Davomatdan o‘tish uchun hozirgi joylashuvingiz
+								tekshirilmoqda.
+							</p>
+						</div>
+					</div>
+
+					<!-- =====================
+					     STEPS
+					     ===================== -->
+
+					<div class="grid gap-3 sm:grid-cols-3">
+						<button
+							v-for="step in data.steps"
+							:key="step.step"
+							type="button"
+							class="relative rounded-2xl border-2 p-4 text-left transition-all"
+							:class="[
+								step.status === 'available' && locationAllowed
+									? 'cursor-pointer border-emerald-600 bg-emerald-600/10 hover:bg-emerald-600/15'
+									: '',
+
+								step.status === 'completed'
+									? 'border-emerald-600 bg-emerald-600/10'
+									: '',
+
+								step.status === 'missed'
+									? 'border-red-600 bg-red-600/10'
+									: '',
+
+								step.status === 'locked' ||
+								(step.status === 'available' &&
+									!locationAllowed)
+									? 'cursor-not-allowed opacity-60'
+									: '',
+							]"
+							:disabled="
+								step.status !== 'available' || !locationAllowed
+							"
+							@click="openStep(step.step, step.status)"
+						>
+							<div
+								class="flex items-center justify-between gap-2"
+							>
+								<div
+									class="flex h-10 w-10 items-center justify-center rounded-full border bg-background"
+								>
+									<Check
+										v-if="step.status === 'completed'"
+										class="h-4 w-4 text-emerald-600"
+									/>
+
+									<Camera
+										v-else-if="
+											step.status === 'available' &&
+											locationAllowed
+										"
+										class="h-4 w-4 text-emerald-600"
+									/>
+
+									<MapPin
+										v-else-if="
+											step.status === 'available' &&
+											!locationAllowed
+										"
+										class="h-4 w-4 text-muted-foreground"
+									/>
+
+									<Lock
+										v-else-if="step.status === 'locked'"
+										class="h-4 w-4 text-muted-foreground"
+									/>
+
+									<X v-else class="h-4 w-4 text-red-500" />
+								</div>
+
+								<Badge :variant="badge(step.status) as any">
+									{{ statusLabel(step.status) }}
+								</Badge>
+							</div>
+
+							<div class="mt-5">
+								<p class="font-semibold">
+									Step
+									{{ step.step }}
+								</p>
+
+								<p class="mt-1 text-xs text-muted-foreground">
+									{{ step.start }}
+									—
+									{{ step.end }}
+								</p>
+							</div>
+
+							<!-- AVAILABLE BUT LOCATION BLOCKED -->
+
+							<p
+								v-if="
+									step.status === 'available' &&
+									!locationAllowed &&
+									!locationLoading
+								"
+								class="mt-3 text-xs text-muted-foreground"
+							>
+								Avval joylashuvni tasdiqlang
+							</p>
+
+							<!-- AVAILABLE -->
+
+							<p
+								v-else-if="
+									step.status === 'available' &&
+									locationAllowed
+								"
+								class="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-700"
+							>
+								<Camera class="h-3.5 w-3.5" />
+
+								Face ID uchun bosing
+							</p>
+						</button>
+					</div>
+				</template>
+			</CardContent>
+		</Card>
+
+		<!-- =========================================
+		     FACE ID DRAWER
+		     ========================================= -->
+
+		<StudentFaceID
+			:open="faceDrawerOpen"
+			:step="selectedStep"
+			:latitude="coordinates.latitude"
+			:longitude="coordinates.longitude"
+			@update:open="handleDrawerOpen"
+			@success="handleFaceSuccess"
+		/>
+	</div>
 </template>
