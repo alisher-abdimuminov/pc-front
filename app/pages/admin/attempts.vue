@@ -10,7 +10,6 @@ import {
 	Search,
 	Eye,
 	MapPin,
-	Wifi,
 	Clock,
 	ShieldCheck,
 	ShieldX,
@@ -75,6 +74,13 @@ const rows = ref<AuditRow[]>([]);
 
 const loading = ref(false);
 const error = ref("");
+const currentPage = ref(1);
+const pageSize = 20;
+const total = ref(0);
+
+const pageCount = computed(() =>
+	Math.max(1, Math.ceil(total.value / pageSize)),
+);
 
 const selectedDate = ref<DateValue | undefined>(today(getLocalTimeZone()));
 
@@ -195,36 +201,87 @@ function mapAttempts(data: any[]): AuditRow[] {
 		raw: row,
 	}));
 }
+
 /* -------------------------------------------------------
  * LOAD
  * ----------------------------------------------------- */
-
 async function load() {
 	loading.value = true;
 	error.value = "";
 
 	try {
-		const date = apiDate();
+		const params = new URLSearchParams();
 
-		const query = date ? `?date=${encodeURIComponent(date)}` : "";
+		params.set("page", String(currentPage.value));
 
-		const response = await api<any>(`/attendance/attempts/${query}`);
+		if (selectedDate.value) {
+			params.set("date", selectedDate.value.toString());
+		}
 
-		const attempts = getResults(response);
+		if (filters.status !== "all") {
+			params.set("status", filters.status);
+		}
 
-		rows.value = mapAttempts(attempts).sort((a, b) => {
-			const aTime = a.date ? new Date(a.date).getTime() : 0;
+		if (filters.errorCode !== "all") {
+			params.set("error_code", filters.errorCode);
+		}
 
-			const bTime = b.date ? new Date(b.date).getTime() : 0;
+		if (filters.search.trim()) {
+			params.set("search", filters.search.trim());
+		}
 
-			return bTime - aTime;
-		});
+		const response = await api<any>(
+			`/attendance/attempts/?${params.toString()}`,
+		);
+
+		const attempts = Array.isArray(response)
+			? response
+			: response?.results || [];
+
+		total.value = Array.isArray(response)
+			? response.length
+			: response?.count || 0;
+
+		rows.value = mapAttempts(attempts);
 	} catch (e) {
 		error.value = errorMessage(e);
 	} finally {
 		loading.value = false;
 	}
 }
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+	() => filters.search,
+	() => {
+		if (searchTimer) {
+			clearTimeout(searchTimer);
+		}
+
+		searchTimer = setTimeout(async () => {
+			currentPage.value = 1;
+			await load();
+		}, 400);
+	},
+);
+
+watch(
+	() => filters.status,
+	async () => {
+		currentPage.value = 1;
+		await load();
+	},
+);
+
+watch(
+	() => filters.errorCode,
+	async () => {
+		currentPage.value = 1;
+		await load();
+	},
+);
+
 onMounted(load);
 
 /* -------------------------------------------------------
@@ -234,11 +291,15 @@ onMounted(load);
 async function handleDateChange() {
 	calendarOpen.value = false;
 
+	currentPage.value = 1;
+
 	await load();
 }
 
 async function clearDate() {
 	selectedDate.value = undefined;
+
+	currentPage.value = 1;
 
 	await load();
 }
@@ -246,12 +307,19 @@ async function clearDate() {
 async function setToday() {
 	selectedDate.value = today(getLocalTimeZone());
 
+	currentPage.value = 1;
+
 	await load();
 }
 
 /* -------------------------------------------------------
  * ERROR CODES
  * ----------------------------------------------------- */
+async function handlePageChange(page: number) {
+	currentPage.value = page;
+
+	await load();
+}
 
 const errorCodes = computed(() => {
 	const values = rows.value
@@ -259,55 +327,6 @@ const errorCodes = computed(() => {
 		.map((row) => String(row.errorCode));
 
 	return [...new Set(values)].sort();
-});
-
-/* -------------------------------------------------------
- * FILTERED ROWS
- * ----------------------------------------------------- */
-
-const filteredRows = computed(() => {
-	const search = filters.search.trim().toLowerCase();
-
-	return rows.value.filter((row) => {
-		/* STATUS */
-
-		if (filters.status !== "all" && row.status !== filters.status) {
-			return false;
-		}
-
-		/* ERROR CODE */
-
-		if (
-			filters.errorCode !== "all" &&
-			String(row.errorCode) !== filters.errorCode
-		) {
-			return false;
-		}
-
-		/* SEARCH */
-
-		if (search) {
-			const searchText = [
-				row.studentName,
-				row.studentUsername,
-				row.ipAddress,
-				row.latitude,
-				row.longitude,
-				row.locationName,
-				row.errorCode,
-				row.errorMessage,
-			]
-				.filter(Boolean)
-				.join(" ")
-				.toLowerCase();
-
-			if (!searchText.includes(search)) {
-				return false;
-			}
-		}
-
-		return true;
-	});
 });
 
 /* -------------------------------------------------------
@@ -561,7 +580,7 @@ const failedCount = computed(
 		     ================================================= -->
 
 		<AppEmptyState
-			v-else-if="!filteredRows.length"
+			v-else-if="!rows.length"
 			title="Audit yozuvlari topilmadi"
 		/>
 
@@ -616,7 +635,7 @@ const failedCount = computed(
 
 					<div class="divide-y">
 						<div
-							v-for="row in filteredRows"
+							v-for="row in rows"
 							:key="row.id"
 							class="grid grid-cols-[minmax(200px,1.5fr)_80px_150px_170px_180px_minmax(180px,1fr)_60px] items-center gap-4 px-4 py-4 transition-colors hover:bg-muted/20"
 						>
@@ -724,6 +743,43 @@ const failedCount = computed(
 					</div>
 				</div>
 			</div>
+		</div>
+
+		<!-- pagination -->
+		<div
+			v-if="!loading && total > pageSize"
+			class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+		>
+			<p class="text-sm text-muted-foreground">
+				Jami {{ total }} ta yozuv
+			</p>
+
+			<Pagination
+				:page="currentPage"
+				:total="total"
+				:items-per-page="pageSize"
+				:sibling-count="1"
+				show-edges
+				@update:page="handlePageChange"
+			>
+				<PaginationContent v-slot="{ items }">
+					<PaginationPrevious />
+
+					<template v-for="(item, index) in items" :key="index">
+						<PaginationItem
+							v-if="item.type === 'page'"
+							:value="item.value"
+							:is-active="item.value === currentPage"
+						>
+							{{ item.value }}
+						</PaginationItem>
+
+						<PaginationEllipsis v-else :index="index" />
+					</template>
+
+					<PaginationNext />
+				</PaginationContent>
+			</Pagination>
 		</div>
 
 		<!-- =================================================
