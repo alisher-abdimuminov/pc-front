@@ -45,6 +45,8 @@ export interface Schedule {
 	weekday: number;
 	location: number;
 	location_detail: Location;
+	shift: 1 | 2;
+	shift_name?: string;
 	groups: number[];
 	group_details: Group[];
 	is_active: boolean;

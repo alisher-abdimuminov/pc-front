@@ -54,6 +54,7 @@ const createDialogOpen = ref(false);
 const form = reactive({
 	weekday: "",
 	location: "",
+	shift: "1",
 	groups: [] as string[],
 	is_active: true,
 });
@@ -61,7 +62,7 @@ const form = reactive({
 function resetForm() {
 	form.weekday = "";
 	form.location = "";
-	form.groups = [];
+	((form.shift = "1"), (form.groups = []));
 	form.is_active = true;
 }
 
@@ -145,6 +146,8 @@ async function create() {
 				weekday: Number(form.weekday),
 
 				location: Number(form.location),
+
+				shift: Number(form.shift),
 
 				groups: form.groups.map((id) => Number(id)),
 
@@ -306,6 +309,15 @@ function scheduleGroups(schedule: Schedule) {
 										</div>
 									</div>
 
+									<Badge variant="outline">
+										{{
+											schedule.shift_name ||
+											(schedule.shift === 2
+												? "2-smena"
+												: "1-smena")
+										}}
+									</Badge>
+
 									<!-- GROUPS -->
 
 									<div class="mt-4 flex items-start gap-2">
@@ -391,6 +403,27 @@ function scheduleGroups(schedule: Schedule) {
 									:value="String(day.value)"
 								>
 									{{ day.label }}
+								</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+
+					<!-- Smena -->
+					<div class="space-y-2">
+						<Label> Smena </Label>
+
+						<Select v-model="form.shift">
+							<SelectTrigger class="w-full">
+								<SelectValue placeholder="Smenani tanlang" />
+							</SelectTrigger>
+
+							<SelectContent>
+								<SelectItem value="1">
+									1-smena (08:00 — 14:00)
+								</SelectItem>
+
+								<SelectItem value="2">
+									2-smena (12:00 — 18:00)
 								</SelectItem>
 							</SelectContent>
 						</Select>

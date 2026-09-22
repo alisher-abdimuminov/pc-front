@@ -9,7 +9,10 @@ import {
 } from "@lucide/vue";
 import type { Group, Location, Schedule, User } from "@/types/api";
 const { api } = useApi();
-const students = ref<User[]>([]);
+const students = ref<{ count: number; results: User[] }>({
+	count: 0,
+	results: [],
+});
 const teachers = ref<User[]>([]);
 const groups = ref<Group[]>([]);
 const locations = ref<Location[]>([]);
@@ -24,7 +27,7 @@ onMounted(async () => {
 		schedules.value,
 		attempts.value,
 	] = await Promise.all([
-		api<User[]>("/auth/users/?type=student"),
+		api<{ count: number; results: User[] }>("/auth/users/?type=student"),
 		api<User[]>("/auth/users/?type=teacher"),
 		api<Group[]>("/groups/"),
 		api<Location[]>("/locations/"),
@@ -47,7 +50,7 @@ onMounted(async () => {
 				</div>
 			</CardHeader>
 			<CardContent class="flex items-center gap-4 py-5">
-				<p class="text-5xl font-bold">{{ students.length }}</p>
+				<p class="text-5xl font-bold">{{ students.count }}</p>
 			</CardContent>
 		</Card>
 
@@ -89,13 +92,13 @@ onMounted(async () => {
 
 		<Card class="border border-rose-600">
 			<CardHeader class="flex items-center justify-between">
-				<span>Xato urinishlar</span>
+				<span>Urinishlar</span>
 				<div class="bg-rose-600 p-2 rounded-xl">
 					<ShieldAlert class="h-5 w-5 text-white" />
 				</div>
 			</CardHeader>
 			<CardContent class="flex items-center gap-4 py-5">
-				<p class="text-5xl font-bold">{{ attempts.length }}</p>
+				<p class="text-5xl font-bold">{{ attempts.count }}</p>
 			</CardContent>
 		</Card>
 	</div>

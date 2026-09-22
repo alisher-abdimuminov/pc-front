@@ -8,7 +8,7 @@ import type { Group, User } from "@/types/api";
 const { api, errorMessage } = useApi();
 
 const groups = ref<Group[]>([]);
-const users = ref<User[]>([]);
+const teachers = ref<User[]>([]);
 const error = ref("");
 const loading = ref(false);
 const syncing = ref(false);
@@ -114,14 +114,6 @@ async function syncGroups() {
 }
 
 /* ----------------------------------
- * COMPUTED
- * ---------------------------------- */
-
-const teachers = computed(() =>
-	users.value.filter((user) => user.role === "teacher"),
-);
-
-/* ----------------------------------
  * LOAD
  * ---------------------------------- */
 
@@ -132,11 +124,11 @@ async function load() {
 	try {
 		const [groupData, userData] = await Promise.all([
 			api<Group[]>("/groups/"),
-			api<User[]>("/auth/users/"),
+			api<User[]>("/auth/users/?type=teacher"),
 		]);
 
 		groups.value = groupData;
-		users.value = userData;
+		teachers.value = userData;
 	} catch (e) {
 		error.value = errorMessage(e);
 	} finally {

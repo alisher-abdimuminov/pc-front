@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: "admin" });
 
-import { Search, UserRound } from "@lucide/vue";
+import { Search, UserRound, Loader2 } from "@lucide/vue";
 
 import type { User } from "@/types/api";
 
@@ -12,33 +12,41 @@ const error = ref("");
 const search = ref("");
 const loading = ref(false);
 
-const filtered = computed(() => {
-	const q = search.value.trim().toLowerCase();
+/* ----------------------------------
+ * PAGINATION
+ * ---------------------------------- */
 
-	if (!q) {
-		return users.value;
-	}
+const currentPage = ref(1);
+const total = ref(0);
 
-	return users.value.filter((user) => {
-		const text = [user.full_name, user.username, user.role, user.group_name]
-			.filter(Boolean)
-			.join(" ")
-			.toLowerCase();
+/*
+ * Backend REST_FRAMEWORK PAGE_SIZE
+ * bilan bir xil bo‘lishi kerak.
+ */
+const pageSize = 20;
 
-		return text.includes(q);
-	});
-});
+/* ----------------------------------
+ * LOAD
+ * ---------------------------------- */
 
 async function load() {
 	loading.value = true;
 	error.value = "";
 
 	try {
-		const response = await api<any>("/auth/users/");
+		const params = new URLSearchParams();
 
-		users.value = Array.isArray(response)
-			? response
-			: response?.results || [];
+		params.set("page", String(currentPage.value));
+
+		if (search.value.trim()) {
+			params.set("search", search.value.trim());
+		}
+
+		const response = await api<any>(`/auth/users/?${params.toString()}`);
+
+		users.value = response?.results || [];
+
+		total.value = response?.count || 0;
 	} catch (e) {
 		error.value = errorMessage(e);
 	} finally {
@@ -47,6 +55,42 @@ async function load() {
 }
 
 onMounted(load);
+
+/* ----------------------------------
+ * SEARCH
+ * ---------------------------------- */
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(search, () => {
+	if (searchTimer) {
+		clearTimeout(searchTimer);
+	}
+
+	searchTimer = setTimeout(async () => {
+		currentPage.value = 1;
+
+		await load();
+	}, 400);
+});
+
+/* ----------------------------------
+ * PAGE
+ * ---------------------------------- */
+
+async function handlePageChange(page: number) {
+	if (page === currentPage.value) {
+		return;
+	}
+
+	currentPage.value = page;
+
+	await load();
+}
+
+/* ----------------------------------
+ * ROLE
+ * ---------------------------------- */
 
 function roleLabel(role: string) {
 	if (role === "student") {
@@ -72,7 +116,9 @@ function roleLabel(role: string) {
 			description="Tizimdagi talabalar, o‘qituvchilar va administratorlar."
 		/>
 
-		<!-- SEARCH -->
+		<!-- =========================
+		     SEARCH
+		     ========================= -->
 
 		<div class="mb-5 max-w-md">
 			<div class="relative">
@@ -88,7 +134,9 @@ function roleLabel(role: string) {
 			</div>
 		</div>
 
-		<!-- ERROR -->
+		<!-- =========================
+		     ERROR
+		     ========================= -->
 
 		<div
 			v-if="error"
@@ -97,7 +145,9 @@ function roleLabel(role: string) {
 			{{ error }}
 		</div>
 
-		<!-- TABLE -->
+		<!-- =========================
+		     TABLE
+		     ========================= -->
 
 		<Card>
 			<CardContent class="p-0">
@@ -121,15 +171,21 @@ function roleLabel(role: string) {
 							<TableRow v-if="loading">
 								<TableCell
 									colspan="4"
-									class="py-12 text-center text-sm text-muted-foreground"
+									class="py-12 text-center"
 								>
-									Yuklanmoqda...
+									<div
+										class="flex items-center justify-center gap-2 text-sm text-muted-foreground"
+									>
+										<Loader2 class="h-4 w-4 animate-spin" />
+
+										Yuklanmoqda...
+									</div>
 								</TableCell>
 							</TableRow>
 
 							<!-- EMPTY -->
 
-							<TableRow v-else-if="!filtered.length">
+							<TableRow v-else-if="!users.length">
 								<TableCell
 									colspan="4"
 									class="py-12 text-center"
@@ -151,7 +207,7 @@ function roleLabel(role: string) {
 							<!-- USERS -->
 
 							<TableRow
-								v-for="user in filtered"
+								v-for="user in users"
 								v-else
 								:key="user.id"
 							>
@@ -203,12 +259,12 @@ function roleLabel(role: string) {
 										/>
 
 										<span
+											class="text-sm font-medium"
 											:class="
 												user.is_active
 													? 'text-emerald-700'
 													: 'text-red-600'
 											"
-											class="text-sm font-medium"
 										>
 											{{
 												user.is_active
@@ -221,6 +277,51 @@ function roleLabel(role: string) {
 							</TableRow>
 						</TableBody>
 					</Table>
+				</div>
+
+				<!-- =========================
+				     PAGINATION
+				     ========================= -->
+
+				<div
+					v-if="!loading && total > pageSize"
+					class="flex flex-col gap-3 border-t px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+				>
+					<p class="text-sm text-muted-foreground">
+						Jami
+						{{ total }}
+						ta foydalanuvchi
+					</p>
+
+					<Pagination
+						:page="currentPage"
+						:total="total"
+						:items-per-page="pageSize"
+						:sibling-count="1"
+						show-edges
+						@update:page="handlePageChange"
+					>
+						<PaginationContent v-slot="{ items }">
+							<PaginationPrevious />
+
+							<template
+								v-for="(item, index) in items"
+								:key="index"
+							>
+								<PaginationItem
+									v-if="item.type === 'page'"
+									:value="item.value"
+									:is-active="item.value === currentPage"
+								>
+									{{ item.value }}
+								</PaginationItem>
+
+								<PaginationEllipsis v-else :index="index" />
+							</template>
+
+							<PaginationNext />
+						</PaginationContent>
+					</Pagination>
 				</div>
 			</CardContent>
 		</Card>
