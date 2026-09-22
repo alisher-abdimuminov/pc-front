@@ -154,206 +154,17 @@ function getResults(response: any) {
 }
 
 /* -------------------------------------------------------
- * STUDENT HELPERS
- * ----------------------------------------------------- */
-
-function getStudentName(row: any, parent?: any) {
-	return (
-		row?.student_name ||
-		parent?.student_name ||
-		row?.student_detail?.full_name ||
-		parent?.student_detail?.full_name ||
-		row?.student?.full_name ||
-		parent?.student?.full_name ||
-		row?.full_name ||
-		"Noma’lum talaba"
-	);
-}
-
-function getStudentUsername(row: any, parent?: any) {
-	return (
-		row?.student_username ||
-		parent?.student_username ||
-		row?.student_detail?.username ||
-		parent?.student_detail?.username ||
-		row?.student?.username ||
-		parent?.student?.username ||
-		""
-	);
-}
-
-function getStudentId(row: any, parent?: any) {
-	return (
-		row?.student_id ||
-		parent?.student_id ||
-		row?.student?.id ||
-		parent?.student?.id ||
-		row?.student ||
-		parent?.student ||
-		null
-	);
-}
-
-/* -------------------------------------------------------
- * LOCATION HELPERS
- * ----------------------------------------------------- */
-
-function getLocationName(row: any, parent?: any) {
-	return (
-		row?.location_name ||
-		parent?.location_name ||
-		row?.location_detail?.name ||
-		parent?.location_detail?.name ||
-		row?.location?.name ||
-		parent?.location?.name ||
-		null
-	);
-}
-
-/* -------------------------------------------------------
- * SUCCESS RECORD MAPPING
- * ----------------------------------------------------- */
-
-function mapSuccessfulRecords(data: any[]): AuditRow[] {
-	const result: AuditRow[] = [];
-
-	for (const parent of data) {
-		/*
-		 * Attendance endpoint:
-		 *
-		 * {
-		 *   student_name: "...",
-		 *   records: [...]
-		 * }
-		 */
-
-		if (Array.isArray(parent.records)) {
-			for (const record of parent.records) {
-				result.push({
-					id: `record-${
-						record.id ??
-						`${getStudentId(record, parent)}-${record.step}-${
-							record.checked_at ||
-							record.created_at ||
-							Math.random()
-						}`
-					}`,
-
-					studentId: getStudentId(record, parent),
-
-					studentName: getStudentName(record, parent),
-
-					studentUsername: getStudentUsername(record, parent),
-
-					step: record.step ?? null,
-
-					status: "success",
-
-					ipAddress: record.ip_address || null,
-
-					latitude: record.latitude ?? null,
-
-					longitude: record.longitude ?? null,
-
-					locationName: getLocationName(record, parent),
-
-					date:
-						record.checked_at ||
-						record.created_at ||
-						record.date ||
-						parent.date ||
-						null,
-
-					errorCode: null,
-
-					errorMessage: "Tekshiruv muvaffaqiyatli o‘tdi.",
-
-					faceVerified: record.face_verified ?? true,
-
-					locationVerified: record.location_verified ?? true,
-
-					image:
-						record.image ||
-						record.face_image ||
-						record.photo ||
-						null,
-
-					userAgent: record.user_agent || null,
-
-					raw: record,
-				});
-			}
-
-			continue;
-		}
-
-		/*
-		 * Agar backend individual attendance
-		 * recordlar qaytarsa.
-		 */
-
-		if (parent.step != null) {
-			result.push({
-				id: `record-${parent.id}`,
-
-				studentId: getStudentId(parent),
-
-				studentName: getStudentName(parent),
-
-				studentUsername: getStudentUsername(parent),
-
-				step: parent.step,
-
-				status: "success",
-
-				ipAddress: parent.ip_address || null,
-
-				latitude: parent.latitude ?? null,
-
-				longitude: parent.longitude ?? null,
-
-				locationName: getLocationName(parent),
-
-				date:
-					parent.checked_at ||
-					parent.created_at ||
-					parent.date ||
-					null,
-
-				errorCode: null,
-
-				errorMessage: "Tekshiruv muvaffaqiyatli o‘tdi.",
-
-				faceVerified: parent.face_verified ?? true,
-
-				locationVerified: parent.location_verified ?? true,
-
-				image:
-					parent.image || parent.face_image || parent.photo || null,
-
-				userAgent: parent.user_agent || null,
-
-				raw: parent,
-			});
-		}
-	}
-
-	return result;
-}
-
-/* -------------------------------------------------------
  * FAILED ATTEMPT MAPPING
  * ----------------------------------------------------- */
-
-function mapFailedAttempts(data: any[]): AuditRow[] {
+function mapAttempts(data: any[]): AuditRow[] {
 	return data.map((row) => ({
 		id: `attempt-${row.id}`,
 
-		studentId: getStudentId(row),
+		studentId: row.student ?? null,
 
-		studentName: getStudentName(row),
+		studentName: row.student_name || "Noma’lum talaba",
 
-		studentUsername: getStudentUsername(row),
+		studentUsername: row.student_username || "",
 
 		step: row.step ?? null,
 
@@ -365,26 +176,25 @@ function mapFailedAttempts(data: any[]): AuditRow[] {
 
 		longitude: row.longitude ?? null,
 
-		locationName: getLocationName(row),
+		locationName: row.location_name || null,
 
-		date: row.attempted_at || row.created_at || null,
+		date: row.attempted_at || null,
 
-		errorCode: row.error_code || row.status || null,
+		errorCode: row.error_code || null,
 
-		errorMessage: row.error_message || row.reason || null,
+		errorMessage: row.error_message || null,
 
 		faceVerified: row.face_verified ?? null,
 
 		locationVerified: row.location_verified ?? null,
 
-		image: row.image || row.face_image || row.photo || null,
+		image: row.image || null,
 
 		userAgent: row.user_agent || null,
 
 		raw: row,
 	}));
 }
-
 /* -------------------------------------------------------
  * LOAD
  * ----------------------------------------------------- */
@@ -398,21 +208,11 @@ async function load() {
 
 		const query = date ? `?date=${encodeURIComponent(date)}` : "";
 
-		const [recordsResponse, attemptsResponse] = await Promise.all([
-			api<any>(`/attendance/records/${query}`),
+		const response = await api<any>(`/attendance/attempts/${query}`);
 
-			api<any>(`/attendance/attempts/${query}`),
-		]);
+		const attempts = getResults(response);
 
-		const attendanceRecords = getResults(recordsResponse);
-
-		const attendanceAttempts = getResults(attemptsResponse);
-
-		const successful = mapSuccessfulRecords(attendanceRecords);
-
-		const attempts = mapFailedAttempts(attendanceAttempts);
-
-		rows.value = [...successful, ...attempts].sort((a, b) => {
+		rows.value = mapAttempts(attempts).sort((a, b) => {
 			const aTime = a.date ? new Date(a.date).getTime() : 0;
 
 			const bTime = b.date ? new Date(b.date).getTime() : 0;
@@ -425,7 +225,6 @@ async function load() {
 		loading.value = false;
 	}
 }
-
 onMounted(load);
 
 /* -------------------------------------------------------
