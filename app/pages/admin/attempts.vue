@@ -75,7 +75,7 @@ const rows = ref<AuditRow[]>([]);
 const loading = ref(false);
 const error = ref("");
 const currentPage = ref(1);
-const pageSize = 20;
+const pageSize = 50;
 const total = ref(0);
 
 const pageCount = computed(() =>
