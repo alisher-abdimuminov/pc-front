@@ -1,5 +1,7 @@
 <script setup lang="ts">
-definePageMeta({ middleware: "admin" });
+definePageMeta({
+	middleware: "admin",
+});
 
 import { Check, X, Loader2, CalendarIcon, RotateCcw, Users } from "@lucide/vue";
 
@@ -26,11 +28,17 @@ const error = ref("");
 
 const selectedDate = ref<DateValue>(today(getLocalTimeZone()));
 
-const calendarOpen = ref(false);
-
+/*
+ * "none" = guruh tanlanmagan.
+ *
+ * SelectItem uchun bo‘sh string
+ * ishlatmaymiz.
+ */
 const filters = reactive({
-	group: "all",
+	group: "none",
 });
+
+const calendarOpen = ref(false);
 
 const dateFormatter = new DateFormatter("uz-UZ", {
 	year: "numeric",
@@ -63,19 +71,25 @@ function normalizeResponse<T>(response: any): T[] {
  * ---------------------------------- */
 
 async function load() {
-	loading.value = true;
 	error.value = "";
+
+	/*
+	 * Guruh tanlanmagan bo‘lsa
+	 * attendance request yubormaymiz.
+	 */
+	if (filters.group === "none") {
+		rows.value = [];
+		return;
+	}
+
+	loading.value = true;
 
 	try {
 		const params = new URLSearchParams();
 
-		if (selectedDate.value) {
-			params.set("date", selectedDate.value.toString());
-		}
+		params.set("date", selectedDate.value.toString());
 
-		if (filters.group !== "all") {
-			params.set("group", filters.group);
-		}
+		params.set("group", filters.group);
 
 		const response = await api<any>(
 			`/attendance/records/?${params.toString()}`,
@@ -94,13 +108,17 @@ async function load() {
  * ---------------------------------- */
 
 async function handleDateChange(value: DateValue | undefined) {
-	if (!value) return;
+	if (!value) {
+		return;
+	}
 
 	selectedDate.value = value;
 
 	calendarOpen.value = false;
 
-	await load();
+	if (filters.group !== "none") {
+		await load();
+	}
 }
 
 /* ----------------------------------
@@ -108,6 +126,11 @@ async function handleDateChange(value: DateValue | undefined) {
  * ---------------------------------- */
 
 async function handleGroupChange() {
+	if (filters.group === "none") {
+		rows.value = [];
+		return;
+	}
+
 	await load();
 }
 
@@ -115,12 +138,14 @@ async function handleGroupChange() {
  * RESET
  * ---------------------------------- */
 
-async function resetFilters() {
+function resetFilters() {
 	selectedDate.value = today(getLocalTimeZone());
 
-	filters.group = "all";
+	filters.group = "none";
 
-	await load();
+	rows.value = [];
+
+	error.value = "";
 }
 
 /* ----------------------------------
@@ -133,7 +158,12 @@ onMounted(async () => {
 
 		groups.value = normalizeResponse<Group>(response);
 
-		await load();
+		/*
+		 * Attendance avtomatik
+		 * yuklanmaydi.
+		 *
+		 * Admin avval guruh tanlaydi.
+		 */
 	} catch (e) {
 		error.value = errorMessage(e);
 	}
@@ -144,7 +174,7 @@ onMounted(async () => {
 	<div>
 		<AppPageTitle
 			title="Davomat monitoring"
-			description="Talabalarning kunlik davomat holati."
+			description="Guruh talabalarining kunlik davomat holati."
 		/>
 
 		<!-- =========================
@@ -192,24 +222,26 @@ onMounted(async () => {
 
 				<!-- GROUP -->
 
-				<div class="w-full space-y-2 sm:w-[260px]">
+				<div class="w-full space-y-2 sm:w-[380px]">
 					<Label> Guruh </Label>
 
 					<Select
 						v-model="filters.group"
 						@update:model-value="handleGroupChange"
 					>
-						<SelectTrigger class="w-72 md:w-96">
-							<div class="flex items-center gap-2">
-								<Users class="h-4 w-4 text-muted-foreground" />
+						<SelectTrigger class="w-full">
+							<div class="flex min-w-0 items-center gap-2">
+								<Users
+									class="h-4 w-4 shrink-0 text-muted-foreground"
+								/>
 
 								<SelectValue placeholder="Guruhni tanlang" />
 							</div>
 						</SelectTrigger>
 
 						<SelectContent>
-							<SelectItem value="all">
-								Barcha guruhlar
+							<SelectItem value="none">
+								Guruhni tanlang
 							</SelectItem>
 
 							<SelectItem
@@ -283,10 +315,19 @@ onMounted(async () => {
 				</div>
 			</div>
 
+			<!-- NO GROUP -->
+
+			<div
+				v-if="filters.group === 'none'"
+				class="py-12 text-center text-sm text-muted-foreground"
+			>
+				Davomatni ko‘rish uchun guruhni tanlang.
+			</div>
+
 			<!-- LOADING -->
 
 			<div
-				v-if="loading"
+				v-else-if="loading"
 				class="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground"
 			>
 				<Loader2 class="h-4 w-4 animate-spin" />
@@ -294,13 +335,13 @@ onMounted(async () => {
 				Yuklanmoqda...
 			</div>
 
-			<!-- EMPTY -->
+			<!-- EMPTY GROUP -->
 
 			<div
 				v-else-if="!rows.length"
 				class="py-12 text-center text-sm text-muted-foreground"
 			>
-				Tanlangan sana va guruh uchun davomat mavjud emas.
+				Tanlangan guruhda talabalar mavjud emas.
 			</div>
 
 			<!-- ROWS -->
